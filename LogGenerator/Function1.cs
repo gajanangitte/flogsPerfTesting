@@ -34,7 +34,7 @@ namespace LogGenerator
     public class Function1
     {
         [FunctionName("Function1")]
-        public async Task Run([TimerTrigger("0 0,15,30,45 * * * *")]TimerInfo myTimer, ILogger log)
+        public async Task Run([TimerTrigger("0 0,20,40 * * * *")]TimerInfo myTimer, ILogger log)
         {
 
             string containerName = "insights-logs-flowlogflowevent";
@@ -43,7 +43,7 @@ namespace LogGenerator
         
 
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
-
+            
             log.LogInformation("Downloading the flowlog i.e. to be ingested, size: 2.05MB Blob");
             BlobClientOptions blobClientOptions= new BlobClientOptions();
             blobClientOptions.Retry.MaxRetries = 2;
@@ -66,10 +66,25 @@ namespace LogGenerator
                 blobContainerClients.Add(containerClient);
             }
 
-            for( int subscriptionNumber = 1000; subscriptionNumber < 2000; subscriptionNumber++)
+
+        var options = new ParallelOptions()
+        {
+            MaxDegreeOfParallelism = 8
+        };
+        
+        
+
+        List<int> subscriptionNumbers = new List<int>();
+        for(int i=1000; i < 2000; i++)
+        {
+            subscriptionNumbers.Add(i);
+        }
+
+
+         await Parallel.ForEachAsync( subscriptionNumbers, options, async (subscriptionNumber, token) => 
             {
-                foreach(BlobContainerClient containerClient in blobContainerClients)
-                {
+               
+            await Parallel.ForEachAsync( blobContainerClients, options, async (containerClient, token) => {
                     string ToUploadPath = getUploadPath(log, subscriptionNumber);
                     try
                     {
@@ -86,8 +101,10 @@ namespace LogGenerator
                     {
                         log.LogInformation(ex.ToString());
                     }
-                }
-            }
+                });
+            });
+
+            
             
         }
 
