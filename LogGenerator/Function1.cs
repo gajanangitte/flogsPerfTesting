@@ -34,61 +34,107 @@ namespace LogGenerator
     public class Function1
     {
         [FunctionName("Function1")]
-        public async Task Run([TimerTrigger("0 5 * * * *")]TimerInfo myTimer, ILogger log)
+        public async Task Run([TimerTrigger("0 0,15,30,45 * * * *")]TimerInfo myTimer, ILogger log)
         {
 
             string containerName = "insights-logs-flowlogflowevent";
-            string storageConnectionString = "DefaultEndpointsProtocol=https;AccountName=aahilstorage;AccountKey=nA4VhfQzZBo3tRtoiyeW8NnNtERwZPtw7u/uBb6KFN5Y3o+YA4SjznZddkZCxCddXBxbTfp8IA6Z+AStTgk7rw==;EndpointSuffix=core.windows.net";
-
+            string downStorageConnectionString = "DefaultEndpointsProtocol=https;AccountName=aahilstorage;AccountKey=nA4VhfQzZBo3tRtoiyeW8NnNtERwZPtw7u/uBb6KFN5Y3o+YA4SjznZddkZCxCddXBxbTfp8IA6Z+AStTgk7rw==;EndpointSuffix=core.windows.net";
+            List<string> logStorageAccountStrings = getLogStorageConnectionStrings(log);
+        
 
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
-            log.LogInformation("Initiating and connecting to a Blob Service Client ... ");
+
+            log.LogInformation("Downloading the flowlog i.e. to be ingested, size: 2.05MB Blob")
+            BlobServiceClient blobServiceClient = new BlobServiceClient(connectionString: downStorageConnectionString, options: blobClientOptions);
+            BlobContainerClient readerClient = blobServiceClient.GetBlobContainerClient("insights-logs-networksecuritygroupflowevent");
+            await readerClient.CreateIfNotExistsAsync();
+            BlobClient blobreaderClient = readerClient.GetBlobClient("resourceId=/SUBSCRIPTIONS/VNETlog.json");
+            string downloadedData = await DownloadToText(blobreaderClient);
+
+
+            log.LogInformation("Initiating and connecting to a Blob Service Clients to ingest data ... ");
             BlobClientOptions blobClientOptions;
-            BlobServiceClient blobServiceClient;
+            List<BlobServiceClient> blobServiceClients;
             blobClientOptions = new BlobClientOptions();
             blobClientOptions.Retry.MaxRetries = 2;
-            blobServiceClient = new BlobServiceClient(connectionString: storageConnectionString, options: blobClientOptions);
+            foreach(string upStorageConnectionString in logStorageAccountStrings)
+            {
+                BlobServiceClient blobServiceClient = new BlobServiceClient(connectionString: upstorageConnectionString, options: blobClientOptions);
+                blobServiceClients.Add(blobServiceClient);
+            }
             log.LogInformation("Action Successful");
             log.LogInformation("Connecting to NSG FLogs ...");
             BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
             await containerClient.CreateIfNotExistsAsync();
             log.LogInformation("Action Successful");
 
-            BlobContainerClient readerClient = blobServiceClient.GetBlobContainerClient("insights-logs-networksecuritygroupflowevent");
-            await readerClient.CreateIfNotExistsAsync();
-            BlobClient blobreaderClient = readerClient.GetBlobClient("resourceId=/SUBSCRIPTIONS/VNETlog.json");
-            string downloadedData = await DownloadToText(blobreaderClient);
 
-            string ToUploadPath = getUploadPath(log);
-            try
+            for( int subscriptionNumber = 1000; subscriptionNumber < 2000; subscriptionNumber++)
             {
-                log.LogInformation("Getting blobClient ready for :" + ToUploadPath);
-                BlobClient blobClient = containerClient.GetBlobClient(ToUploadPath);
+                foreach(BlobServiceClient blobServiceClient in blobServiceClients)
+                {
+                    string ToUploadPath = getUploadPath(log, subscriptionNumber);
+                    try
+                    {
+                        log.LogInformation("Getting blobClient ready for :" + ToUploadPath);
+                        BlobClient blobClient = containerClient.GetBlobClient(ToUploadPath);
 
-                log.LogInformation("Uploading Blob ..");
+                        log.LogInformation("Uploading Blob ..");
                 
-                await blobClient.UploadAsync(BinaryData.FromString(downloadedData), overwrite: true);
+                        await blobClient.UploadAsync(BinaryData.FromString(downloadedData), overwrite: true);
 
-                log.LogInformation("Operation Completed");
+                        log.LogInformation("Operation Completed");
+                    }
+                    catch (Exception ex)
+                    {
+                        log.LogInformation(ex.ToString());
+                    }
+                }
             }
-            catch (Exception ex)
-            {
-                log.LogInformation(ex.ToString());
-            }
+            
         }
 
-        public string getUploadPath(ILogger log)
+        private static List<string> getLogStorageConnectionStrings(ILogger log)
         {
-            string subscriptionID = "AF15E575-F948-49AC-BCE0-252D028E9379";
+            List<string> connectionStrings = new List<string> ();
+
+            for(int accountNumber = 1; accountNumber < 6; accountNumber++)
+            {
+                string connectionString = "AZURE_STORAGE_LOGS_CONNECTION_STRING_" + accountNumber.ToString();
+                
+                //log.LogInformation(connectionString);
+                connectionString = (string)GetEnvironmentVariable(connectionString);
+
+                if(connectionString.Length > 0)
+                   connectionStrings.Add(connectionString);
+               
+            }
+
+            return connectionStrings;
+        }
+
+        public static string GetEnvironmentVariable(string name)
+        {
+            #nullable enable
+            string? environmentVariable = System.Environment.GetEnvironmentVariable(name, System.EnvironmentVariableTarget.Process);
+            if (environmentVariable == null)
+                return null;
+
+            return environmentVariable;
+        }
+
+        public string getUploadPath(ILogger log, int subscriptionNumber)
+        {
+            string subscriptionID = "AF15E575-F948-49AC-BCE0-252D028E" + subscriptionNumber.ToString();
             string NetworkWatcherRG = "aahilrg";
             string NetworkWatcherName = "NRMS-fuap73iqlrpgcaahilvnet";
-            string flowLogName = "vnetFlowLogs";
+            string flowLogName = "vnetFlowLogs2";
 
-            string yearB = Convert.ToString(DateTime.Now.Year);
-            string monthB = Convert.ToString(DateTime.Now.Month);
-            string dayB = Convert.ToString(DateTime.Now.Day);
-            string hourB = Convert.ToString(DateTime.Now.Hour);
-            string secondB = Convert.ToString(DateTime.Now.Second);
+            string yearB = Convert.ToString(DateTime.UtcNow.Year);
+            string monthB = Convert.ToString(DateTime.UtcNow.Month);
+            string dayB = Convert.ToString(DateTime.UtcNow.Day);
+            string hourB = Convert.ToString(DateTime.UtcNow.Hour);
+            string secondB = Convert.ToString(DateTime.UtcNow.Second);
             string macAddress = "0022482F877B";
 
             try
