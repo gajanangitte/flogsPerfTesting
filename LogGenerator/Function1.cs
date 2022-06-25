@@ -44,7 +44,9 @@ namespace LogGenerator
 
             log.LogInformation($"C# Timer trigger function executed at: {DateTime.Now}");
 
-            log.LogInformation("Downloading the flowlog i.e. to be ingested, size: 2.05MB Blob")
+            log.LogInformation("Downloading the flowlog i.e. to be ingested, size: 2.05MB Blob");
+            BlobClientOptions blobClientOptions= new BlobClientOptions();
+            blobClientOptions.Retry.MaxRetries = 2;
             BlobServiceClient blobServiceClient = new BlobServiceClient(connectionString: downStorageConnectionString, options: blobClientOptions);
             BlobContainerClient readerClient = blobServiceClient.GetBlobContainerClient("insights-logs-networksecuritygroupflowevent");
             await readerClient.CreateIfNotExistsAsync();
@@ -53,25 +55,20 @@ namespace LogGenerator
 
 
             log.LogInformation("Initiating and connecting to a Blob Service Clients to ingest data ... ");
-            BlobClientOptions blobClientOptions;
-            List<BlobServiceClient> blobServiceClients;
-            blobClientOptions = new BlobClientOptions();
-            blobClientOptions.Retry.MaxRetries = 2;
+            List<BlobContainerClient> blobContainerClients = new List<BlobContainerClient>();
+     
             foreach(string upStorageConnectionString in logStorageAccountStrings)
             {
-                BlobServiceClient blobServiceClient = new BlobServiceClient(connectionString: upstorageConnectionString, options: blobClientOptions);
-                blobServiceClients.Add(blobServiceClient);
+                blobServiceClient = new BlobServiceClient(connectionString: upStorageConnectionString, options: blobClientOptions);
+                
+                BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+                await containerClient.CreateIfNotExistsAsync();
+                blobContainerClients.Add(containerClient);
             }
-            log.LogInformation("Action Successful");
-            log.LogInformation("Connecting to NSG FLogs ...");
-            BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
-            await containerClient.CreateIfNotExistsAsync();
-            log.LogInformation("Action Successful");
-
 
             for( int subscriptionNumber = 1000; subscriptionNumber < 2000; subscriptionNumber++)
             {
-                foreach(BlobServiceClient blobServiceClient in blobServiceClients)
+                foreach(BlobContainerClient containerClient in blobContainerClients)
                 {
                     string ToUploadPath = getUploadPath(log, subscriptionNumber);
                     try
