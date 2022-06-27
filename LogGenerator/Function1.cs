@@ -38,7 +38,7 @@ namespace LogGenerator
         {
 
             string containerName = "insights-logs-flowlogflowevent";
-            string downStorageConnectionString = "DefaultEndpointsProtocol=https;AccountName=aahilstorage;AccountKey=nA4VhfQzZBo3tRtoiyeW8NnNtERwZPtw7u/uBb6KFN5Y3o+YA4SjznZddkZCxCddXBxbTfp8IA6Z+AStTgk7rw==;EndpointSuffix=core.windows.net";
+            string downStorageConnectionString = GetEnvironmentVariable("AZURE_STORAGE_BLOB_CONNECTION_STRING");
             List<string> logStorageAccountStrings = getLogStorageConnectionStrings(log);
         
 
