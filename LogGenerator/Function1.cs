@@ -36,7 +36,7 @@ namespace LogGenerator
         [FunctionName("Function1")]
         public async Task Run([TimerTrigger("0 0,20,40 * * * *")]TimerInfo myTimer, ILogger log)
         {
-
+            DateTime startTime = DateTime.Now;
             string containerName = "insights-logs-flowlogflowevent";
             string downStorageConnectionString = GetEnvironmentVariable("AZURE_STORAGE_BLOB_CONNECTION_STRING");
             List<string> logStorageAccountStrings = getLogStorageConnectionStrings(log);
@@ -56,7 +56,7 @@ namespace LogGenerator
 
             log.LogInformation("Initiating and connecting to a Blob Service Clients to ingest data ... ");
             List<BlobContainerClient> blobContainerClients = new List<BlobContainerClient>();
-     
+            Dictionary<BlobContainerClient, string> clientTostring = new Dictionary<BlobContainerClient, string>();
             foreach(string upStorageConnectionString in logStorageAccountStrings)
             {
                 blobServiceClient = new BlobServiceClient(connectionString: upStorageConnectionString, options: blobClientOptions);
@@ -64,12 +64,13 @@ namespace LogGenerator
                 BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
                 await containerClient.CreateIfNotExistsAsync();
                 blobContainerClients.Add(containerClient);
+                clientTostring.Add(containerClient, upStorageConnectionString.Substring(75,6));
             }
 
 
         var options = new ParallelOptions()
         {
-            MaxDegreeOfParallelism = Math.Max(4,Environment.ProcessorCount/5);
+            MaxDegreeOfParallelism = Math.Max(4,Environment.ProcessorCount/5)
         };
         
         
@@ -85,7 +86,7 @@ namespace LogGenerator
             {
                
             await Parallel.ForEachAsync( blobContainerClients, options, async (containerClient, token) => {
-                    string ToUploadPath = getUploadPath(log, subscriptionNumber);
+                    string ToUploadPath = getUploadPath(log, subscriptionNumber, clientTostring[containerClient]);
                     try
                     {
                         log.LogInformation("Getting blobClient ready for :" + ToUploadPath);
@@ -105,7 +106,7 @@ namespace LogGenerator
             });
 
             
-            
+            log.LogInformation("Total time taken: "+ (DateTime.Now - startTime));
         }
 
         private static List<string> getLogStorageConnectionStrings(ILogger log)
@@ -137,7 +138,7 @@ namespace LogGenerator
             return environmentVariable;
         }
 
-        public string getUploadPath(ILogger log, int subscriptionNumber)
+        public string getUploadPath(ILogger log, int subscriptionNumber, string flog)
         {
             string subscriptionID = "AF15E575-F948-49AC-BCE0-252D028E" + subscriptionNumber.ToString();
             string NetworkWatcherRG = "aahilrg";
