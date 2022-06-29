@@ -70,7 +70,7 @@ namespace LogGenerator
 
         var options = new ParallelOptions()
         {
-            MaxDegreeOfParallelism = (int)Math.Sqrt(System.Environment.)
+            MaxDegreeOfParallelism = (int)Math.Sqrt(System.Environment.ProcessorCount)
         };
         
         
