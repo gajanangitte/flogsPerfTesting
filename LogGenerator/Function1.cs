@@ -34,7 +34,7 @@ namespace LogGenerator
     public class Function1
     {
         [FunctionName("Function1")]
-        public async Task Run([TimerTrigger("0 0,20,40 * * * *")]TimerInfo myTimer, ILogger log)
+        public async Task Run([TimerTrigger("0 20,40,60 * * * *")]TimerInfo myTimer, ILogger log)
         {
             DateTime startTime = DateTime.Now;
             string containerName = "insights-logs-flowlogflowevent";
@@ -143,13 +143,12 @@ namespace LogGenerator
             string subscriptionID = "AF15E575-F948-49AC-BCE0-252D028E" + subscriptionNumber.ToString();
             string NetworkWatcherRG = "aahilrg";
             string NetworkWatcherName = "NRMS-fuap73iqlrpgcaahilvnet";
-            string flowLogName = "vnetFlowLogs2";
+            string flowLogName = "vnetFlowLogs2" + flog;
 
-            string yearB = Convert.ToString(DateTime.UtcNow.Year);
-            string monthB = Convert.ToString(DateTime.UtcNow.Month);
-            string dayB = Convert.ToString(DateTime.UtcNow.Day);
-            string hourB = Convert.ToString(DateTime.UtcNow.Hour);
-            string secondB = Convert.ToString(DateTime.UtcNow.Second);
+            string yearB = Convert.ToString(DateTime.UtcNow.Year); 
+            string monthB = string.Format("{0:00}",DateTime.UtcNow.Month );
+            string dayB = string.Format("{0:00}",DateTime.UtcNow.Day );
+            string hourB = string.Format("{0:00}",DateTime.UtcNow.Hour );
             string macAddress = "0022482F877B";
 
             try
