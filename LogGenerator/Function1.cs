@@ -34,7 +34,7 @@ namespace LogGenerator
     public class Function1
     {
         [FunctionName("Function1")]
-        public async Task Run([TimerTrigger("0 20,40,60 * * * *")]TimerInfo myTimer, ILogger log)
+        public async Task Run([TimerTrigger("0 0,20,40 * * * *")]TimerInfo myTimer, ILogger log)
         {
             DateTime startTime = DateTime.Now;
             string containerName = "insights-logs-flowlogflowevent";
